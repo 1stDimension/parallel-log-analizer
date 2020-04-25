@@ -5,3 +5,4 @@
 *.dSYM/
 
 access.log
+test/

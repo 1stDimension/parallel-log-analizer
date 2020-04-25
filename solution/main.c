@@ -2,12 +2,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 #include <stdbool.h>
 
 #include "./libs/c_hashmap/hashmap.h"
 
 #define master 0
 
+#define LOG_FILE_NAME "fragment.log"
 #define FIELD_SIZE 512
 
 typedef struct LogEnrtry
@@ -79,6 +81,18 @@ LogEnrtry parseLogEntry(const char *logLine) {
     logEntry.status[i] = '\0';
 
     return logEntry;
+}
+
+// Get field from single LogEntry. fieldOut should be at liest FIELD_SIZE
+void getFieldFromLogEntry(const LogEnrtry* entry, const char *fieldName, char *fieldOut) {
+    if (strcmp(fieldName, "addr") == 0)
+        strcpy(fieldOut, entry->url);
+    else if (strcmp(fieldName, "stat") == 0)
+        strcpy(fieldOut, entry->status);
+    else if (strcmp(fieldName, "time") == 0)
+        strcpy(fieldOut, entry->date);
+    else
+        fieldOut = NULL;
 }
 
 void printLogEntry(const LogEnrtry *LogEnrtry) {
