@@ -8,6 +8,85 @@
 
 #define master 0
 
+#define FIELD_SIZE 512
+
+typedef struct LogEnrtry
+{
+    char ip[FIELD_SIZE];
+    char date[FIELD_SIZE];
+    char httpMethod[FIELD_SIZE];
+    char url[FIELD_SIZE];
+    char status[FIELD_SIZE];
+} LogEnrtry;
+
+LogEnrtry parseLogEntry(const char *logLine) {
+    const char *c = logLine;
+    LogEnrtry logEntry;
+    int i;
+
+    // Read ip
+    for (i = 0; *c != ' '; i++)
+    {
+        logEntry.ip[i] = *(c++);
+    }
+    logEntry.ip[i] = '\0';
+
+    // Skip to next element
+    while (*c != '[') c++;
+    c++;
+
+    // Read date with minute presicion
+    const int colonCountStop = 3; // For targeting precison
+    int colonCount;
+    for (i = 0, colonCount = 0; colonCount < colonCountStop; i++)
+    {
+        if (*c == ':')
+            colonCount++;
+        logEntry.date[i] = *(c++);
+    }
+    logEntry.date[i] = '\0';
+
+    // Skip to next element
+    while (*c != '"') c++;
+    c++;
+
+    // Read http method
+    for (i = 0; *c != ' '; i++)
+    {
+        logEntry.httpMethod[i] = *(c++);
+    }
+    logEntry.httpMethod[i] = '\0';
+
+    // Skip to next element
+    c++;
+
+    // Read request url
+    for (i = 0; *c != ' '; i++)
+    {
+        logEntry.url[i] = *(c++);
+    }
+    logEntry.url[i] = '\0';
+
+    // Skip to next element
+    while (*c != '"') c++;
+    c += 2;
+
+    // Read response code
+    for (i = 0; *c != ' '; i++)
+    {
+        logEntry.status[i] = *(c++);
+    }
+    logEntry.status[i] = '\0';
+
+    return logEntry;
+}
+
+void printLogEntry(const LogEnrtry *LogEnrtry) {
+    printf("ip: %s date: %s httpMethod: %s URL: %s, statusCode: %s\n",
+           LogEnrtry->ip, LogEnrtry->date, LogEnrtry->httpMethod, LogEnrtry->url,
+           LogEnrtry->status);
+}
+
 void mpiClenup()
 {
     MPI_Finalize();
@@ -32,26 +111,9 @@ int main(int argc, char **argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
     if (world_rank == master) {
-        int error;
-        map_t mymap;
-        mymap = hashmap_new();
-
-        int values[] = {7, 3, 5};
-
-        hashmap_put(mymap, "aa", &values[0]);
-        hashmap_put(mymap, "ba", &values[1]);
-
-        int *out;
-        hashmap_get(mymap, "aa", (void **) &out);
-        *out = (*out) + 1;
-
-        hashmap_get(mymap, "aa", (void **) &out);
-
-        printf("Retrived value: %d\n", *out);
-
-        hashmap_iterate(mymap, printData, NULL);
-
-        hashmap_free(mymap);
+        const char *logLine = "23.95.35.93 - - [12/Apr/2015:06:45:06 +0200] \"POST /xmlrpc.php HTTP/1.0\" 403 497 \"-\" \"Mozilla/5.0 (compatible; Googlebot/2.1;  http://www.google.com/bot.html)\"";
+        LogEnrtry entry = parseLogEntry(logLine);
+        printLogEntry(&entry);
     }
 
     return EXIT_SUCCESS;
