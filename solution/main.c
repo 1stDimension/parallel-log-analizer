@@ -13,6 +13,13 @@ void mpiClenup()
     MPI_Finalize();
 }
 
+int printData(any_t item, any_t data) {
+    int value = *(int*) data;
+    printf("vlue: %d\n", value);
+
+    return MAP_OK;
+}
+
 int main(int argc, char **argv)
 {
     // Initialize the MPI environment
@@ -29,7 +36,7 @@ int main(int argc, char **argv)
         map_t mymap;
         mymap = hashmap_new();
 
-        int values[] = {2, 3, 5};
+        int values[] = {7, 3, 5};
 
         hashmap_put(mymap, "aa", &values[0]);
         hashmap_put(mymap, "ba", &values[1]);
@@ -41,6 +48,8 @@ int main(int argc, char **argv)
         hashmap_get(mymap, "aa", (void **) &out);
 
         printf("Retrived value: %d\n", *out);
+
+        hashmap_iterate(mymap, printData, NULL);
 
         hashmap_free(mymap);
     }
