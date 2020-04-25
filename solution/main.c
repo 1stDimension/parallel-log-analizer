@@ -84,15 +84,17 @@ LogEnrtry parseLogEntry(const char *logLine) {
 }
 
 // Get field from single LogEntry. fieldOut should be at liest FIELD_SIZE
-void getFieldFromLogEntry(const LogEnrtry* entry, const char *fieldName, char *fieldOut) {
+int getFieldFromLogEntry(const LogEnrtry* entry, const char *fieldName, char *fieldOut) {
     if (strcmp(fieldName, "addr") == 0)
-        strcpy(fieldOut, entry->url);
+        strcpy(fieldOut, entry->ip);
     else if (strcmp(fieldName, "stat") == 0)
         strcpy(fieldOut, entry->status);
     else if (strcmp(fieldName, "time") == 0)
         strcpy(fieldOut, entry->date);
     else
-        fieldOut = NULL;
+        return -1;
+
+    return 0;
 }
 
 void printLogEntry(const LogEnrtry *LogEnrtry) {
@@ -116,8 +118,10 @@ int printData(any_t item, any_t data) {
 int main(int argc, char **argv)
 {
     // Initialize the MPI environment
-    MPI_Init(NULL, NULL);
+    MPI_Init(&argc, &argv);
     atexit(mpiClenup);
+    // TODO: Get selectedField from rguments
+    const char* selectedField = "addr";
 
     // Get the number of all processes and rank of current process
     int world_size, world_rank;
@@ -125,9 +129,24 @@ int main(int argc, char **argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
     if (world_rank == master) {
-        const char *logLine = "23.95.35.93 - - [12/Apr/2015:06:45:06 +0200] \"POST /xmlrpc.php HTTP/1.0\" 403 497 \"-\" \"Mozilla/5.0 (compatible; Googlebot/2.1;  http://www.google.com/bot.html)\"";
-        LogEnrtry entry = parseLogEntry(logLine);
-        printLogEntry(&entry);
+        FILE* file = fopen(LOG_FILE_NAME, "r");
+        if (!file) {
+            fprintf(stderr, "Unable to open read file\n");
+            exit(EXIT_FAILURE);
+        }
+
+        char line[FIELD_SIZE * 10];
+        while(fgets(line, sizeof(line), file)) {
+            LogEnrtry entry = parseLogEntry(line);
+            char field[FIELD_SIZE];
+            if (getFieldFromLogEntry(&entry, selectedField, field) != 0) {
+                fprintf(stderr, "Wrong field name\n");
+                fclose(file);
+                exit(EXIT_FAILURE);
+            }
+            printf("%s\n", field);
+        }
+        fclose(file);
     }
 
     return EXIT_SUCCESS;
