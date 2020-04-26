@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include "mpiUtils.h"
 #include "./libs/c_hashmap/hashmap.h"
 
 #define master 0
@@ -128,26 +129,52 @@ int main(int argc, char **argv)
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
-    if (world_rank == master) {
-        FILE* file = fopen(LOG_FILE_NAME, "r");
-        if (!file) {
-            fprintf(stderr, "Unable to open read file\n");
-            exit(EXIT_FAILURE);
-        }
+    // if (world_rank == master) {
+    //     FILE* file = fopen(LOG_FILE_NAME, "r");
+    //     if (!file) {
+    //         fprintf(stderr, "Unable to open read file\n");
+    //         exit(EXIT_FAILURE);
+    //     }
 
-        char line[FIELD_SIZE * 10];
-        while(fgets(line, sizeof(line), file)) {
-            LogEnrtry entry = parseLogEntry(line);
-            char field[FIELD_SIZE];
-            if (getFieldFromLogEntry(&entry, selectedField, field) != 0) {
-                fprintf(stderr, "Wrong field name\n");
-                fclose(file);
-                exit(EXIT_FAILURE);
-            }
-            printf("%s\n", field);
-        }
-        fclose(file);
+    //     char line[FIELD_SIZE * 10];
+    //     while(fgets(line, sizeof(line), file)) {
+    //         LogEnrtry entry = parseLogEntry(line);
+    //         char field[FIELD_SIZE];
+    //         if (getFieldFromLogEntry(&entry, selectedField, field) != 0) {
+    //             fprintf(stderr, "Wrong field name\n");
+    //             fclose(file);
+    //             exit(EXIT_FAILURE);
+    //         }
+    //         printf("%s\n", field);
+    //     }
+    //     fclose(file);
+    // }
+
+    char testFields[3][FIELD_SIZE];
+    strcpy(testFields[0], "23.95.35.93");
+    strcpy(testFields[1], "192.3.91.67");
+    strcpy(testFields[2], "23.95.35.93");
+
+    // Create data type for log field
+    MPI_Datatype dt_field;
+    MPI_Type_contiguous(FIELD_SIZE, MPI_CHAR, &dt_field);
+    MPI_Type_commit(&dt_field);
+
+    // Prepare fo Scatterv
+    int sizes[world_size];
+    int skips[world_size];
+
+    prepareDataForAsymetricOperaton(world_size, 3, sizes, skips);
+    printf("%d -> size: %d skip: %d\n", world_rank, sizes[world_rank], skips[world_rank]);
+
+    char myFields[3][FIELD_SIZE];
+    MPI_Scatterv(testFields, sizes, skips, dt_field, myFields, sizes[world_rank], dt_field, master, MPI_COMM_WORLD);
+
+    for (int i = 0; i < sizes[world_rank]; i++)
+    {
+        printf("%d -> myFields[%d] = %s\n", world_rank, i, myFields[i]);
     }
 
+    MPI_Type_free(&dt_field);
     return EXIT_SUCCESS;
 }
