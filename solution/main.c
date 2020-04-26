@@ -133,6 +133,7 @@ int main(int argc, char **argv)
 
     cvector_vector_type(char *) loadedFields = NULL;
 
+    // Load selected fields from file
     if (world_rank == master) {
         FILE* file = fopen(LOG_FILE_NAME, "r");
         if (!file) {
@@ -159,40 +160,82 @@ int main(int argc, char **argv)
             cvector_push_back(loadedFields, field);
         }
         fclose(file);
-
-        for (int i = 0; i < cvector_size(loadedFields); i++)
-        {
-            printf("%s\n", loadedFields[i]);
-        }
-
     }
 
-    char testFields[3][FIELD_SIZE];
-    strcpy(testFields[0], "23.95.35.93");
-    strcpy(testFields[1], "192.3.91.67");
-    strcpy(testFields[2], "23.95.35.93");
+    // Prepare fo Scatterv
+    int *sizes;
+    int *skips;
+    if (world_rank == master)
+    {
+        sizes = malloc(world_size * sizeof(*sizes));
+        skips = malloc(world_size * sizeof(*skips));
+        prepareDataForAsymetricOperaton(world_size, cvector_size(loadedFields), sizes, skips);
+    }
 
     // Create data type for log field
     MPI_Datatype dt_field;
     MPI_Type_contiguous(FIELD_SIZE, MPI_CHAR, &dt_field);
     MPI_Type_commit(&dt_field);
 
-    // Prepare fo Scatterv
-    int sizes[world_size];
-    int skips[world_size];
-
-    prepareDataForAsymetricOperaton(world_size, 3, sizes, skips);
-    printf("%d -> size: %d skip: %d\n", world_rank, sizes[world_rank], skips[world_rank]);
-
-    char myFields[3][FIELD_SIZE];
-    MPI_Scatterv(testFields, sizes, skips, dt_field, myFields, sizes[world_rank], dt_field, master, MPI_COMM_WORLD);
-
-    for (int i = 0; i < sizes[world_rank]; i++)
+    if (world_rank == master)
     {
-        printf("%d -> myFields[%d] = %s\n", world_rank, i, myFields[i]);
+        printf("Data before scatter\n");
+        for (int i = 0; i < cvector_size(loadedFields); i++)
+        {
+            printf("%s\n", loadedFields[i]);
+        }
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    int mySize;
+    MPI_Scatter(sizes, 1, MPI_INT, &mySize, 1, MPI_INT, master, MPI_COMM_WORLD);
+    printf("%d -> size: %d\n", world_rank, mySize);
+    char myPart[mySize][FIELD_SIZE];
+
+    // if (world_rank == master)
+    // {
+    //     for (int i = 0; i < world_size; i++)
+    //     {
+    //         printf("%d :-> size: %d skip: %d\n", i, sizes[i], skips[i]);
+    //     }
+    // }
+
+    // Scatter data
+    int code = MPI_Scatterv(loadedFields, sizes, skips, dt_field, myPart, mySize, dt_field, master, MPI_COMM_WORLD);
+    printf("%d -> MPI Code: %d\n", world_rank, code);
+
+    {
+        // char testFields[3][FIELD_SIZE];
+        // strcpy(testFields[0], "23.95.35.93");
+        // strcpy(testFields[1], "192.3.91.67");
+        // strcpy(testFields[2], "23.95.35.93");
+
+        // Prepare fo Scatterv
+        // int sizes[world_size];
+        // int skips[world_size];
+
+        // prepareDataForAsymetricOperaton(world_size, 3, sizes, skips);
+        // printf("%d -> size: %d skip: %d\n", world_rank, sizes[world_rank], skips[world_rank]);
+
+        // char myFields[3][FIELD_SIZE];
+        // MPI_Scatterv(testFields, sizes, skips, dt_field, myFields, sizes[world_rank], dt_field, master, MPI_COMM_WORLD);
+
+        // for (int i = 0; i < sizes[world_rank]; i++)
+        // {
+        //     printf("%d -> myFields[%d] = %s\n", world_rank, i, myFields[i]);
+        // }
     }
 
+    for (int i = 0; i < mySize; i++)
+    {   if (world_rank == master)
+            printf("%d -> myPart[%d] = %s\n", world_rank, i, myPart[i]);
+    }
+
+    // Free resources
     if (world_rank == master) {
+        free(sizes);
+        free(skips);
+
         for (int i = 0; i < cvector_size(loadedFields); i++)
         {
             free(loadedFields[i]);
