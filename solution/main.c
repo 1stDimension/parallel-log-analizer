@@ -43,6 +43,30 @@ int printMapOfFieldsAndCount(any_t item, any_t data)
     return MAP_OK;
 }
 
+void mapDataToOccuranceCount(char fields[][FIELD_SIZE], int fieldCount, map_t* mapOut)
+{
+    for (int i = 0; i < fieldCount; i++)
+    {
+        FieldAndCount *fieldAndCount;
+        int status = hashmap_get(*mapOut, fields[i], (void**)(&fieldAndCount));
+        if (status == MAP_MISSING)
+        {
+            fieldAndCount = malloc(sizeof(*fieldAndCount));
+            strcpy(fieldAndCount->field, fields[i]);
+            fieldAndCount->count = 1;
+            if (hashmap_put(*mapOut, fieldAndCount->field, fieldAndCount) != MAP_OK)
+            {
+                fprintf(stderr, "Unable to put value to map");
+                exit(EXIT_FAILURE);
+            }
+        }
+        else //Increment value
+        {
+            fieldAndCount->count += 1;
+        }
+    }
+}
+
 int main(int argc, char **argv)
 {
     // Initialize the MPI environment
@@ -135,30 +159,10 @@ int main(int argc, char **argv)
 
     // ---------- Map ----------
     map_t myMap = hashmap_new();
-
-    for (int i = 0; i < mySize; i++)
-    {
-        FieldAndCount *fieldAndCount;
-        int status = hashmap_get(myMap, myPart[i], (void**)(&fieldAndCount));
-        if (status == MAP_MISSING)
-        {
-            fieldAndCount = malloc(sizeof(*fieldAndCount));
-            strcpy(fieldAndCount->field, myPart[i]);
-            fieldAndCount->count = 1;
-            if (hashmap_put(myMap, fieldAndCount->field, fieldAndCount) != MAP_OK)
-            {
-                fprintf(stderr, "Unable to put value to map");
-                exit(EXIT_FAILURE);
-            }
-        }
-        else //Increment value
-        {
-            fieldAndCount->count = fieldAndCount->count + 1; // TODO: Try += 1
-        }
-    }
+    mapDataToOccuranceCount(myPart, mySize, &myMap);
 
     hashmap_iterate(myMap, printMapOfFieldsAndCount, &world_rank);
-
+    // TODO: Free map values
 
     // Free resources
     hashmap_free(myMap);
