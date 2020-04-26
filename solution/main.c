@@ -13,6 +13,7 @@
 #define CVECTOR_LOGARITHMIC_GROWTH
 #define master 0
 
+// TODO: Read this from input
 #define LOG_FILE_NAME "fragment.log"
 
 void mpiClenup()
@@ -36,7 +37,8 @@ int printData(any_t item, any_t data) {
 int printMapOfFieldsAndCount(any_t item, any_t data)
 {
     FieldAndCount *value = (FieldAndCount *) data;
-    printf("%s -> %d\n", value->field, value->count);
+    int processRank = *(int *) item;
+    printf("%d: %s -> %d\n", processRank, value->field, value->count);
 
     return MAP_OK;
 }
@@ -155,10 +157,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if(world_rank == master)
-    {
-        hashmap_iterate(myMap, printMapOfFieldsAndCount, NULL);
-    }
+    hashmap_iterate(myMap, printMapOfFieldsAndCount, &world_rank);
 
 
     // Free resources
