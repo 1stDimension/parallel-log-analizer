@@ -4,7 +4,7 @@ MPICC?=mpicc
 DebugFlags=-std=c11 -Wall -g3 -pedantic
 ReleseFlags=-Ofast -std=c11 -g0 -Wno-everything
 
-Objects=hashmap.o mpiUtils.o
+Objects=hashmap.o mpiUtils.o logEntry.o
 
 release: CompileFlags=$(ReleseFlags)
 release: $(Objects)
