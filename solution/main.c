@@ -203,12 +203,13 @@ int main(int argc, char **argv)
     // Gatter data at master
     MPI_Gather(&myMapLength, 1, MPI_INT, sizes, 1, MPI_INT, master, MPI_COMM_WORLD);
     int allMappingLenght = 0;
-    for (int i = 0; i < world_size; i++)
-        allMappingLenght += sizes[i];
-
     FieldAndCount* allMappings = NULL;
+
     if (world_rank == master)
     {
+        for (int i = 0; i < world_size; i++)
+            allMappingLenght += sizes[i];
+
         allMappings = malloc(allMappingLenght * sizeof(*allMappings));
         skips[0] = 0;
         for (int i = 1; i < world_size; i++)
@@ -225,6 +226,14 @@ int main(int argc, char **argv)
     MPI_Type_create_struct(2, blockLenghts, displacements, types, &dt_field_and_count);
     MPI_Type_commit(&dt_field_and_count);
 
+    MPI_Gatherv(mappings, myMapLength, dt_field_and_count, allMappings,
+                sizes, skips, dt_field_and_count, master, MPI_COMM_WORLD);
+
+    if (world_rank == master)
+        for (int i = 0; i < allMappingLenght; i++)
+        {
+            printf("allMappings[%d] = field: %s count: %d\n", i, allMappings[i].field, allMappings[i].count);
+        }
 
 
     // Free resources
