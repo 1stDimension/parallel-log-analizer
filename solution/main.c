@@ -46,8 +46,15 @@ int printData(any_t item, any_t data) {
 int printMapOfFieldsAndCount(any_t item, any_t data)
 {
     FieldAndCount *value = (FieldAndCount *) data;
-    int processRank = *(int *) item;
-    printf("%d: %s -> %d\n", processRank, value->field, value->count);
+    if (item != NULL)
+    {
+        int processRank = *(int *) item;
+        printf("%d: %s -> %d\n", processRank, value->field, value->count);
+    }
+    else
+    {
+        printf("%s -> %d\n", value->field, value->count);
+    }
 
     return MAP_OK;
 }
@@ -255,7 +262,7 @@ int main(int argc, char **argv)
         }
 
         printf("\nFinal results:\n");
-        hashmap_iterate(finalMap, printMapOfFieldsAndCount, &world_rank);
+        hashmap_iterate(finalMap, printMapOfFieldsAndCount, NULL);
 
         hashmap_free(finalMap);
     }
