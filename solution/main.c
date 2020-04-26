@@ -118,12 +118,7 @@ int main(int argc, char **argv)
         {
             memcpy(p, loadedFields[i], FIELD_SIZE * sizeof(*loadedFields));
             p += FIELD_SIZE;
-        }
-
-        // Now vector can be freed
-        for (int i = 0; i < cvector_size(loadedFields); i++)
-        {
-            free(loadedFields[i]);
+            free(loadedFields[i]); // Now vector can be freed
         }
         cvector_free(loadedFields);
     }
