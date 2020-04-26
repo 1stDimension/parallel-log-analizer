@@ -236,6 +236,28 @@ int main(int argc, char **argv)
         {
             printf("allMappings[%d] = field: %s count: %d\n", i, allMappings[i].field, allMappings[i].count);
         }
+
+        // Actual reduction
+        map_t finalMap = hashmap_new();
+        for (int i = 0; i < allMappingLenght; i++)
+        {
+            FieldAndCount *fieldAndCount;
+            int status = hashmap_get(finalMap, allMappings[i].field, (void**)(&fieldAndCount));
+            if (status == MAP_MISSING)
+            {
+                // This is a bit distructive to allMappings[] but it's no longer needed
+                hashmap_put(finalMap, allMappings[i].field, &allMappings[i]);
+            }
+            else
+            {
+                fieldAndCount->count += allMappings[i].count;
+            }
+        }
+
+        printf("\nFinal results:\n");
+        hashmap_iterate(finalMap, printMapOfFieldsAndCount, &world_rank);
+
+        hashmap_free(finalMap);
     }
 
     // Free resources
@@ -246,6 +268,7 @@ int main(int argc, char **argv)
         free(skips);
     }
 
+    MPI_Type_free(&dt_field_and_count);
     MPI_Type_free(&dt_field);
     return EXIT_SUCCESS;
 }
