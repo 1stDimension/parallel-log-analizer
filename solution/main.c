@@ -20,9 +20,23 @@ void mpiClenup()
     MPI_Finalize();
 }
 
+typedef struct FieldAndCountStruct
+{
+    char field[FIELD_SIZE];
+    int count;
+} FieldAndCount;
+
 int printData(any_t item, any_t data) {
     int value = *(int*) data;
     printf("vlue: %d\n", value);
+
+    return MAP_OK;
+}
+
+int printMapOfFieldsAndCount(any_t item, any_t data)
+{
+    FieldAndCount *value = (FieldAndCount *) data;
+    printf("%s -> %d\n", value->field, value->count);
 
     return MAP_OK;
 }
@@ -86,29 +100,13 @@ int main(int argc, char **argv)
     MPI_Type_contiguous(FIELD_SIZE, MPI_CHAR, &dt_field);
     MPI_Type_commit(&dt_field);
 
-    // if (world_rank == master)
-    // {
-    //     printf("Data before scatter\n");
-    //     for (int i = 0; i < cvector_size(loadedFields); i++)
-    //     {
-    //         printf("%s\n", loadedFields[i]);
-    //     }
-    // }
-
     int mySize;
     MPI_Scatter(sizes, 1, MPI_INT, &mySize, 1, MPI_INT, master, MPI_COMM_WORLD);
     printf("%d -> size: %d\n", world_rank, mySize);
     char myPart[mySize][FIELD_SIZE];
 
-    // if (world_rank == master)
-    // {
-    //     for (int i = 0; i < world_size; i++)
-    //     {
-    //         printf("%d :-> size: %d skip: %d\n", i, sizes[i], skips[i]);
-    //     }
-    // }
-
     // Loaded data needs to be flattened before scatter
+    // To avoid this vector could store field sturctures but this allows me to try MPI_Type_contiguous()
     char **flattendedData = NULL;
     if (world_rank == master)
     {
@@ -133,7 +131,38 @@ int main(int argc, char **argv)
         printf("%d -> myPart[%d] = %s\n", world_rank, i, myPart[i]);
     }
 
+    // ---------- Map ----------
+    map_t myMap = hashmap_new();
+
+    for (int i = 0; i < mySize; i++)
+    {
+        FieldAndCount *fieldAndCount;
+        int status = hashmap_get(myMap, myPart[i], (void**)(&fieldAndCount));
+        if (status == MAP_MISSING)
+        {
+            fieldAndCount = malloc(sizeof(*fieldAndCount));
+            strcpy(fieldAndCount->field, myPart[i]);
+            fieldAndCount->count = 1;
+            if (hashmap_put(myMap, fieldAndCount->field, fieldAndCount) != MAP_OK)
+            {
+                fprintf(stderr, "Unable to put value to map");
+                exit(EXIT_FAILURE);
+            }
+        }
+        else //Increment value
+        {
+            fieldAndCount->count = fieldAndCount->count + 1; // TODO: Try += 1
+        }
+    }
+
+    if(world_rank == master)
+    {
+        hashmap_iterate(myMap, printMapOfFieldsAndCount, NULL);
+    }
+
+
     // Free resources
+    hashmap_free(myMap);
     if (world_rank == master) {
         free(sizes);
         free(skips);
