@@ -109,7 +109,7 @@ int main(int argc, char **argv)
     // }
 
     // Loaded data needs to be flattened before scatter
-    char **flattendedData;
+    char **flattendedData = NULL;
     if (world_rank == master)
     {
         flattendedData = malloc(cvector_size(loadedFields) * FIELD_SIZE * sizeof(*loadedFields));
@@ -125,6 +125,7 @@ int main(int argc, char **argv)
 
     // Scatter data
     MPI_Scatterv(flattendedData, sizes, skips, dt_field, myPart, mySize, dt_field, master, MPI_COMM_WORLD);
+    free(flattendedData);
 
     for (int i = 0; i < mySize; i++)
     {
