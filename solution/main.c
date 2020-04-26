@@ -52,7 +52,7 @@ int printMapOfFieldsAndCount(any_t item, any_t data)
     return MAP_OK;
 }
 
-int writeMapOfFieldsAndCountToArray(any_t item, any_t data)
+int coppyMapOfFieldsAndCountToArray(any_t item, any_t data)
 {
     FieldAndCount *value = (FieldAndCount *) data;
     ArrayAndIterator *arrayAndIterator = (ArrayAndIterator *) item;
@@ -61,6 +61,7 @@ int writeMapOfFieldsAndCountToArray(any_t item, any_t data)
     memcpy(outputArray + arrayAndIterator->i, value, sizeof(*value));
     arrayAndIterator->i += 1;
 
+    free(value);
     return MAP_OK;
 }
 
@@ -194,7 +195,7 @@ int main(int argc, char **argv)
     arrayAndIterator.array = mappings;
     arrayAndIterator.i = 0;
 
-    hashmap_iterate(myMap, writeMapOfFieldsAndCountToArray, &arrayAndIterator);
+    hashmap_iterate(myMap, coppyMapOfFieldsAndCountToArray, &arrayAndIterator);
     // for (int i = 0; i < myMapLength; i++)
     // {
     //     printf("%d => field: %s count %d\n", world_rank, mappings[i].field, mappings[i].count);
@@ -230,11 +231,12 @@ int main(int argc, char **argv)
                 sizes, skips, dt_field_and_count, master, MPI_COMM_WORLD);
 
     if (world_rank == master)
+    {
         for (int i = 0; i < allMappingLenght; i++)
         {
             printf("allMappings[%d] = field: %s count: %d\n", i, allMappings[i].field, allMappings[i].count);
         }
-
+    }
 
     // Free resources
     hashmap_free(myMap);
