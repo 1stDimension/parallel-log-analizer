@@ -157,7 +157,9 @@ int main(int argc, char **argv)
 
     int mySize;
     MPI_Scatter(sizes, 1, MPI_INT, &mySize, 1, MPI_INT, master, MPI_COMM_WORLD);
+#ifdef DEBUG
     printf("%d -> size: %d\n", world_rank, mySize);
+#endif
     char myPart[mySize][FIELD_SIZE];
 
     // Loaded data needs to be flattened before scatter
@@ -180,19 +182,21 @@ int main(int argc, char **argv)
     MPI_Scatterv(flattendedData, sizes, skips, dt_field, myPart, mySize, dt_field, master, MPI_COMM_WORLD);
     free(flattendedData);
 
+#ifdef DEBUG
     for (int i = 0; i < mySize; i++)
     {
         // if (world_rank == master)
         printf("%d -> myPart[%d] = %s\n", world_rank, i, myPart[i]);
     }
+#endif
 
     // ---------- Map ----------
     map_t myMap = hashmap_new();
     mapDataToOccuranceCount(myPart, mySize, &myMap);
 
-    MPI_Barrier(MPI_COMM_WORLD); // TODO: Remove this
+#ifdef DEBUG
     hashmap_iterate(myMap, printMapOfFieldsAndCount, &world_rank);
-    // TODO: Free map values
+#endif
 
     // ---------- Reduce ----------
     int myMapLength = hashmap_length(myMap);
@@ -203,10 +207,12 @@ int main(int argc, char **argv)
     arrayAndIterator.i = 0;
 
     hashmap_iterate(myMap, coppyMapOfFieldsAndCountToArray, &arrayAndIterator);
-    // for (int i = 0; i < myMapLength; i++)
-    // {
-    //     printf("%d => field: %s count %d\n", world_rank, mappings[i].field, mappings[i].count);
-    // }
+#ifdef DEBUG
+    for (int i = 0; i < myMapLength; i++)
+    {
+        printf("%d => field: %s count %d\n", world_rank, mappings[i].field, mappings[i].count);
+    }
+#endif
 
     // Gatter data at master
     MPI_Gather(&myMapLength, 1, MPI_INT, sizes, 1, MPI_INT, master, MPI_COMM_WORLD);
@@ -239,10 +245,12 @@ int main(int argc, char **argv)
 
     if (world_rank == master)
     {
+#ifdef DEBUG
         for (int i = 0; i < allMappingLenght; i++)
         {
             printf("allMappings[%d] = field: %s count: %d\n", i, allMappings[i].field, allMappings[i].count);
         }
+#endif
 
         // Actual reduction
         map_t finalMap = hashmap_new();
