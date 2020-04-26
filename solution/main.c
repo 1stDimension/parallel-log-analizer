@@ -7,7 +7,9 @@
 
 #include "mpiUtils.h"
 #include "./libs/c_hashmap/hashmap.h"
+#include "./libs/c-vector/cvector.h"
 
+#define CVECTOR_LOGARITHMIC_GROWTH
 #define master 0
 
 #define LOG_FILE_NAME "fragment.log"
@@ -129,26 +131,41 @@ int main(int argc, char **argv)
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
-    // if (world_rank == master) {
-    //     FILE* file = fopen(LOG_FILE_NAME, "r");
-    //     if (!file) {
-    //         fprintf(stderr, "Unable to open read file\n");
-    //         exit(EXIT_FAILURE);
-    //     }
+    cvector_vector_type(char *) loadedFields = NULL;
 
-    //     char line[FIELD_SIZE * 10];
-    //     while(fgets(line, sizeof(line), file)) {
-    //         LogEnrtry entry = parseLogEntry(line);
-    //         char field[FIELD_SIZE];
-    //         if (getFieldFromLogEntry(&entry, selectedField, field) != 0) {
-    //             fprintf(stderr, "Wrong field name\n");
-    //             fclose(file);
-    //             exit(EXIT_FAILURE);
-    //         }
-    //         printf("%s\n", field);
-    //     }
-    //     fclose(file);
-    // }
+    if (world_rank == master) {
+        FILE* file = fopen(LOG_FILE_NAME, "r");
+        if (!file) {
+            fprintf(stderr, "Unable to open read file\n");
+            exit(EXIT_FAILURE);
+        }
+
+        char line[FIELD_SIZE * 10];
+        while(fgets(line, sizeof(line), file)) {
+            LogEnrtry entry = parseLogEntry(line);
+            char *field = malloc(FIELD_SIZE * sizeof(*field));
+
+            if (getFieldFromLogEntry(&entry, selectedField, field) != 0) {
+                fprintf(stderr, "Wrong field name\n");
+                for (int i = 0; i < cvector_size(loadedFields); i++)
+                {
+                    free(loadedFields[i]);
+                }
+                cvector_free(loadedFields);
+                fclose(file);
+                exit(EXIT_FAILURE);
+            }
+
+            cvector_push_back(loadedFields, field);
+        }
+        fclose(file);
+
+        for (int i = 0; i < cvector_size(loadedFields); i++)
+        {
+            printf("%s\n", loadedFields[i]);
+        }
+
+    }
 
     char testFields[3][FIELD_SIZE];
     strcpy(testFields[0], "23.95.35.93");
@@ -173,6 +190,14 @@ int main(int argc, char **argv)
     for (int i = 0; i < sizes[world_rank]; i++)
     {
         printf("%d -> myFields[%d] = %s\n", world_rank, i, myFields[i]);
+    }
+
+    if (world_rank == master) {
+        for (int i = 0; i < cvector_size(loadedFields); i++)
+        {
+            free(loadedFields[i]);
+        }
+        cvector_free(loadedFields);
     }
 
     MPI_Type_free(&dt_field);
