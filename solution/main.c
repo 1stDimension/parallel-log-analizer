@@ -16,12 +16,20 @@
 // TODO: Read this from input
 #define LOG_FILE_NAME "fragment.log"
 
+// For atexit()
 void mpiClenup()
 {
     MPI_Finalize();
 }
 
-typedef struct FieldAndCountStruct
+// Helper utility struct
+typedef struct ArrayAndIterator
+{
+    void *array;
+    int i;
+} ArrayAndIterator;
+
+typedef struct FieldAndCount
 {
     char field[FIELD_SIZE];
     int count;
@@ -39,6 +47,18 @@ int printMapOfFieldsAndCount(any_t item, any_t data)
     FieldAndCount *value = (FieldAndCount *) data;
     int processRank = *(int *) item;
     printf("%d: %s -> %d\n", processRank, value->field, value->count);
+
+    return MAP_OK;
+}
+
+int writeMapOfFieldsAndCountToArray(any_t item, any_t data)
+{
+    FieldAndCount *value = (FieldAndCount *) data;
+    ArrayAndIterator *arrayAndIterator = (ArrayAndIterator *) item;
+    FieldAndCount *outputArray = arrayAndIterator->array;
+
+    memcpy(outputArray + arrayAndIterator->i, value, sizeof(*value));
+    arrayAndIterator->i += 1;
 
     return MAP_OK;
 }
@@ -161,8 +181,25 @@ int main(int argc, char **argv)
     map_t myMap = hashmap_new();
     mapDataToOccuranceCount(myPart, mySize, &myMap);
 
+    MPI_Barrier(MPI_COMM_WORLD); // TODO: Remove this
     hashmap_iterate(myMap, printMapOfFieldsAndCount, &world_rank);
     // TODO: Free map values
+
+    // ---------- Reduce ----------
+    int myMapLength = hashmap_length(myMap);
+
+    FieldAndCount mappings[myMapLength];
+    ArrayAndIterator arrayAndIterator;
+    arrayAndIterator.array = mappings;
+    arrayAndIterator.i = 0;
+
+    hashmap_iterate(myMap, writeMapOfFieldsAndCountToArray, &arrayAndIterator);
+    for (int i = 0; i < myMapLength; i++)
+    {
+        printf("%d => field: %s count %d\n", world_rank, mappings[i].field, mappings[i].count);
+    }
+
+    MPI_Gather(&myMapLength, 1, MPI_INT, sizes, 1, MPI_INT, master, MPI_COMM_WORLD);
 
     // Free resources
     hashmap_free(myMap);
