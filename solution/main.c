@@ -4,6 +4,7 @@
 #include <math.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #include "mpiUtils.h"
 #include "logEntry.h"
@@ -194,16 +195,42 @@ int main(int argc, char **argv)
     arrayAndIterator.i = 0;
 
     hashmap_iterate(myMap, writeMapOfFieldsAndCountToArray, &arrayAndIterator);
-    for (int i = 0; i < myMapLength; i++)
+    // for (int i = 0; i < myMapLength; i++)
+    // {
+    //     printf("%d => field: %s count %d\n", world_rank, mappings[i].field, mappings[i].count);
+    // }
+
+    // Gatter data at master
+    MPI_Gather(&myMapLength, 1, MPI_INT, sizes, 1, MPI_INT, master, MPI_COMM_WORLD);
+    int allMappingLenght = 0;
+    for (int i = 0; i < world_size; i++)
+        allMappingLenght += sizes[i];
+
+    FieldAndCount* allMappings = NULL;
+    if (world_rank == master)
     {
-        printf("%d => field: %s count %d\n", world_rank, mappings[i].field, mappings[i].count);
+        allMappings = malloc(allMappingLenght * sizeof(*allMappings));
+        skips[0] = 0;
+        for (int i = 1; i < world_size; i++)
+        {
+            skips[i] = skips[i-1] + sizes[i-1];
+        }
     }
 
-    MPI_Gather(&myMapLength, 1, MPI_INT, sizes, 1, MPI_INT, master, MPI_COMM_WORLD);
+    // Create MPI Datatype
+    MPI_Datatype dt_field_and_count;
+    int blockLenghts[] = {FIELD_SIZE, 1};
+    MPI_Aint displacements[] = {offsetof(FieldAndCount, field), offsetof(FieldAndCount, count)};
+    MPI_Datatype types[] = {MPI_CHAR, MPI_INT};
+    MPI_Type_create_struct(2, blockLenghts, displacements, types, &dt_field_and_count);
+    MPI_Type_commit(&dt_field_and_count);
+
+
 
     // Free resources
     hashmap_free(myMap);
     if (world_rank == master) {
+        free(allMappings);
         free(sizes);
         free(skips);
     }
