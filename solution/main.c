@@ -48,27 +48,47 @@ int coppyMapOfFieldsAndCountToArray(any_t item, any_t data);
 // For mapping filds by single process
 void mapDataToOccuranceCount(char fields[][FIELD_SIZE], int fieldCount, map_t* mapOut);
 
+void parseArguments(int argc, char **argv, char **selectedField, char **fileName)
+{
+    int world_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+    if (argc != 3)
+    {
+        // TODO: List possible fields
+        if (world_rank == master)
+            printf("Invalid argument count.\nProgram expects 2 arguments: <field_selection> <log_file_name>\n"
+                   "Example usage: mpirun -n 4 ./log-analizer addr access.log\n\n");
+        exit(EXIT_FAILURE);
+    }
+
+    *selectedField = argv[1];
+    *fileName = argv[2];
+}
+
 int main(int argc, char **argv)
 {
     // Initialize the MPI environment
     MPI_Init(&argc, &argv);
     atexit(mpiClenup);
-    // TODO: Get selectedField from rguments
-    const char* selectedField = "addr";
+    char* selectedField = NULL;
+    char *fileName = NULL;
+
 
     // Get the number of all processes and rank of current process
     int world_size, world_rank;
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
+    parseArguments(argc, argv, &selectedField, &fileName);
     cvector_vector_type(char *) loadedFields = NULL;
 
     // ---------- Load selected fields from file ----------
     if (world_rank == master) {
-        FILE* file = fopen(LOG_FILE_NAME, "r");
+        FILE* file = fopen(fileName, "r");
         if (!file) {
             fprintf(stderr, "Unable to open read file\n");
-            exit(EXIT_FAILURE);
+            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
         }
 
         char line[FIELD_SIZE * 10];
@@ -84,7 +104,7 @@ int main(int argc, char **argv)
                 }
                 cvector_free(loadedFields);
                 fclose(file);
-                exit(EXIT_FAILURE);
+                MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
             }
 
             cvector_push_back(loadedFields, field);
