@@ -36,65 +36,17 @@ typedef struct FieldAndCount
     int count;
 } FieldAndCount;
 
-int printData(any_t item, any_t data) {
-    int value = *(int*) data;
-    printf("vlue: %d\n", value);
+// Function for itterating over hash map and displaying each Field and it's coccurence count
+// First argument can accept process id or NULL
+int printMapOfFieldsAndCount(any_t item, any_t data);
 
-    return MAP_OK;
-}
+// Function for itterating over hash map and moving each value to simple array
+// Each value from hashmap is freed()
+int coppyMapOfFieldsAndCountToArray(any_t item, any_t data);
 
-int printMapOfFieldsAndCount(any_t item, any_t data)
-{
-    FieldAndCount *value = (FieldAndCount *) data;
-    if (item != NULL)
-    {
-        int processRank = *(int *) item;
-        printf("%d: %s -> %d\n", processRank, value->field, value->count);
-    }
-    else
-    {
-        printf("%s -> %d\n", value->field, value->count);
-    }
-
-    return MAP_OK;
-}
-
-int coppyMapOfFieldsAndCountToArray(any_t item, any_t data)
-{
-    FieldAndCount *value = (FieldAndCount *) data;
-    ArrayAndIterator *arrayAndIterator = (ArrayAndIterator *) item;
-    FieldAndCount *outputArray = arrayAndIterator->array;
-
-    memcpy(outputArray + arrayAndIterator->i, value, sizeof(*value));
-    arrayAndIterator->i += 1;
-
-    free(value);
-    return MAP_OK;
-}
-
-void mapDataToOccuranceCount(char fields[][FIELD_SIZE], int fieldCount, map_t* mapOut)
-{
-    for (int i = 0; i < fieldCount; i++)
-    {
-        FieldAndCount *fieldAndCount;
-        int status = hashmap_get(*mapOut, fields[i], (void**)(&fieldAndCount));
-        if (status == MAP_MISSING)
-        {
-            fieldAndCount = malloc(sizeof(*fieldAndCount));
-            strcpy(fieldAndCount->field, fields[i]);
-            fieldAndCount->count = 1;
-            if (hashmap_put(*mapOut, fieldAndCount->field, fieldAndCount) != MAP_OK)
-            {
-                fprintf(stderr, "Unable to put value to map");
-                exit(EXIT_FAILURE);
-            }
-        }
-        else //Increment value
-        {
-            fieldAndCount->count += 1;
-        }
-    }
-}
+// Generate map of each field and it's coressponding occurence count from array of fields
+// For mapping filds by single process
+void mapDataToOccuranceCount(char fields[][FIELD_SIZE], int fieldCount, map_t* mapOut);
 
 int main(int argc, char **argv)
 {
@@ -111,7 +63,7 @@ int main(int argc, char **argv)
 
     cvector_vector_type(char *) loadedFields = NULL;
 
-    // Load selected fields from file
+    // ---------- Load selected fields from file ----------
     if (world_rank == master) {
         FILE* file = fopen(LOG_FILE_NAME, "r");
         if (!file) {
@@ -140,7 +92,8 @@ int main(int argc, char **argv)
         fclose(file);
     }
 
-    // Prepare fo Scatterv
+    // ---------- Send parts of data to each process ----------
+    // Prepare for Scatterv
     int *sizes;
     int *skips;
     if (world_rank == master)
@@ -163,7 +116,7 @@ int main(int argc, char **argv)
     char myPart[mySize][FIELD_SIZE];
 
     // Loaded data needs to be flattened before scatter
-    // To avoid this vector could store field sturctures but this allows me to try MPI_Type_contiguous()
+    // To avoid this vector could store field sturctures but this allows me to try out MPI_Type_contiguous()
     char **flattendedData = NULL;
     if (world_rank == master)
     {
@@ -199,6 +152,7 @@ int main(int argc, char **argv)
 #endif
 
     // ---------- Reduce ----------
+    // Coppy mapping results to simple array
     int myMapLength = hashmap_length(myMap);
 
     FieldAndCount mappings[myMapLength];
@@ -214,7 +168,8 @@ int main(int argc, char **argv)
     }
 #endif
 
-    // Gatter data at master
+    // --- Gatter data at master ---
+    // Prepare data for Gatterv
     MPI_Gather(&myMapLength, 1, MPI_INT, sizes, 1, MPI_INT, master, MPI_COMM_WORLD);
     int allMappingLenght = 0;
     FieldAndCount* allMappings = NULL;
@@ -268,8 +223,9 @@ int main(int argc, char **argv)
                 fieldAndCount->count += allMappings[i].count;
             }
         }
-
+#ifdef DEBUG
         printf("\nFinal results:\n");
+#endif
         hashmap_iterate(finalMap, printMapOfFieldsAndCount, NULL);
 
         hashmap_free(finalMap);
@@ -286,4 +242,57 @@ int main(int argc, char **argv)
     MPI_Type_free(&dt_field_and_count);
     MPI_Type_free(&dt_field);
     return EXIT_SUCCESS;
+}
+
+int printMapOfFieldsAndCount(any_t item, any_t data)
+{
+    FieldAndCount *value = (FieldAndCount *) data;
+    if (item != NULL)
+    {
+        int processRank = *(int *) item;
+        printf("%d: %s -> %d\n", processRank, value->field, value->count);
+    }
+    else
+    {
+        printf("%s -> %d\n", value->field, value->count);
+    }
+
+    return MAP_OK;
+}
+
+int coppyMapOfFieldsAndCountToArray(any_t item, any_t data)
+{
+    FieldAndCount *value = (FieldAndCount *) data;
+    ArrayAndIterator *arrayAndIterator = (ArrayAndIterator *) item;
+    FieldAndCount *outputArray = arrayAndIterator->array;
+
+    memcpy(outputArray + arrayAndIterator->i, value, sizeof(*value));
+    arrayAndIterator->i += 1;
+
+    free(value);
+    return MAP_OK;
+}
+
+void mapDataToOccuranceCount(char fields[][FIELD_SIZE], int fieldCount, map_t* mapOut)
+{
+    for (int i = 0; i < fieldCount; i++)
+    {
+        FieldAndCount *fieldAndCount;
+        int status = hashmap_get(*mapOut, fields[i], (void**)(&fieldAndCount));
+        if (status == MAP_MISSING)
+        {
+            fieldAndCount = malloc(sizeof(*fieldAndCount));
+            strcpy(fieldAndCount->field, fields[i]);
+            fieldAndCount->count = 1;
+            if (hashmap_put(*mapOut, fieldAndCount->field, fieldAndCount) != MAP_OK)
+            {
+                fprintf(stderr, "Unable to put value to map");
+                exit(EXIT_FAILURE);
+            }
+        }
+        else //Increment value
+        {
+            fieldAndCount->count += 1;
+        }
+    }
 }
