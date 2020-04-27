@@ -58,7 +58,7 @@ void parseArguments(int argc, char **argv, char **selectedField, char **fileName
         // TODO: List possible fields
         if (world_rank == master)
             printf("Invalid argument count.\nProgram expects 2 arguments: <field_selection> <log_file_name>\n"
-                   "Example usage: mpirun -n 4 ./log-analizer addr access.log\n\n");
+                   "Example usage: mpirun -n 4 ./log-analizer addr fragment.log\n\n");
         exit(EXIT_FAILURE);
     }
 
