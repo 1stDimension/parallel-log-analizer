@@ -14,9 +14,6 @@
 #define CVECTOR_LOGARITHMIC_GROWTH
 #define master 0
 
-// TODO: Read this from input
-#define LOG_FILE_NAME "fragment.log"
-
 // For atexit()
 void mpiClenup()
 {
@@ -55,9 +52,16 @@ void parseArguments(int argc, char **argv, char **selectedField, char **fileName
 
     if (argc != 3)
     {
-        // TODO: List possible fields
         if (world_rank == master)
             printf("Invalid argument count.\nProgram expects 2 arguments: <field_selection> <log_file_name>\n"
+                   "Possible fields: \n"
+                   "addr - ip addres\n"
+                   "time - time with minutes precision\n"
+                   "metod - HTTP method\n"
+                   "url - request url\n"
+                   "protocol - protocol version\n"
+                   "stat - request status\n"
+                   "browser - browser fingerprint\n\n"
                    "Example usage: mpirun -n 4 ./log-analizer addr fragment.log\n\n");
         exit(EXIT_FAILURE);
     }
