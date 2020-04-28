@@ -39,11 +39,20 @@ int printMapOfFieldsAndCount(any_t item, any_t data);
 
 // Function for itterating over hash map and moving each value to simple array
 // Each value from hashmap is freed()
-int coppyMapOfFieldsAndCountToArray(any_t item, any_t data);
+int moveMapOfFieldsAndCountToArray(any_t item, any_t data);
 
 // Generate map of each field and it's coressponding occurence count from array of fields
 // For mapping filds by single process
 void mapDataToOccuranceCount(char fields[][FIELD_SIZE], int fieldCount, map_t* mapOut);
+
+// Comparator function for sorting
+int compareFieldAndCount(const void* p1, const void* p2)
+{
+    const FieldAndCount *fieldAndCount1 = p1;
+    const FieldAndCount *fieldAndCount2 = p2;
+
+    return fieldAndCount2->count - fieldAndCount1->count;
+}
 
 void parseArguments(int argc, char **argv, char **selectedField, char **fileName)
 {
@@ -184,7 +193,7 @@ int main(int argc, char **argv)
     arrayAndIterator.array = mappings;
     arrayAndIterator.i = 0;
 
-    hashmap_iterate(myMap, coppyMapOfFieldsAndCountToArray, &arrayAndIterator);
+    hashmap_iterate(myMap, moveMapOfFieldsAndCountToArray, &arrayAndIterator);
 #ifdef DEBUG
     for (int i = 0; i < myMapLength; i++)
     {
@@ -239,18 +248,31 @@ int main(int argc, char **argv)
             int status = hashmap_get(finalMap, allMappings[i].field, (void**)(&fieldAndCount));
             if (status == MAP_MISSING)
             {
-                // This is a bit distructive to allMappings[] but it's no longer needed
-                hashmap_put(finalMap, allMappings[i].field, &allMappings[i]);
+                fieldAndCount = malloc(sizeof(*fieldAndCount));
+                memcpy(fieldAndCount, &allMappings[i], sizeof(*fieldAndCount));
+                hashmap_put(finalMap, allMappings[i].field, fieldAndCount);
             }
             else
             {
                 fieldAndCount->count += allMappings[i].count;
             }
         }
+
+        // Sort final data
+        const int finalMapLenght = hashmap_length(finalMap);
+        FieldAndCount finalMappings[finalMapLenght];
+        arrayAndIterator.array = finalMappings;
+        arrayAndIterator.i = 0;
+        hashmap_iterate(finalMap, moveMapOfFieldsAndCountToArray, &arrayAndIterator);
+
+        qsort(finalMappings, finalMapLenght, sizeof(*finalMappings), compareFieldAndCount);
 #ifdef DEBUG
         printf("\nFinal results:\n");
 #endif
-        hashmap_iterate(finalMap, printMapOfFieldsAndCount, NULL);
+        for (int i = 0; i < finalMapLenght; i++)
+        {
+            printf("%s -> %d\n", finalMappings[i].field, finalMappings[i].count);
+        }
 
         hashmap_free(finalMap);
     }
@@ -284,7 +306,7 @@ int printMapOfFieldsAndCount(any_t item, any_t data)
     return MAP_OK;
 }
 
-int coppyMapOfFieldsAndCountToArray(any_t item, any_t data)
+int moveMapOfFieldsAndCountToArray(any_t item, any_t data)
 {
     FieldAndCount *value = (FieldAndCount *) data;
     ArrayAndIterator *arrayAndIterator = (ArrayAndIterator *) item;
