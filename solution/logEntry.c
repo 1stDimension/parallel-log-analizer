@@ -90,10 +90,18 @@ LogEnrtry parseLogEntry(const char *logLine) {
 int getFieldFromLogEntry(const LogEnrtry* entry, const char *fieldName, char *fieldOut) {
     if (strcmp(fieldName, "addr") == 0)
         strcpy(fieldOut, entry->ip);
-    else if (strcmp(fieldName, "stat") == 0)
-        strcpy(fieldOut, entry->status);
     else if (strcmp(fieldName, "time") == 0)
         strcpy(fieldOut, entry->date);
+    else if (strcmp(fieldName, "metod") == 0)
+        strcpy(fieldOut, entry->httpMethod);
+    else if (strcmp(fieldName, "url") == 0)
+        strcpy(fieldOut, entry->url);
+    else if (strcmp(fieldName, "protocol") == 0)
+        strcpy(fieldOut, entry->protocol);
+    else if (strcmp(fieldName, "stat") == 0)
+        strcpy(fieldOut, entry->status);
+    else if (strcmp(fieldName, "browser") == 0)
+        strcpy(fieldOut, entry->browserFingerprint);
     else
         return -1;
 
