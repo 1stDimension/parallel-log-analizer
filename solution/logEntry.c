@@ -49,8 +49,18 @@ LogEnrtry parseLogEntry(const char *logLine) {
     logEntry.url[i] = '\0';
 
     // Skip to next element
-    while (*c != '"') c++;
-    c += 2;
+    while (*c == ' ') c++;
+
+    // Read protocol version
+    for (i = 0; *c != '"'; i++)
+    {
+        logEntry.protocol[i] = *(c++);
+    }
+    logEntry.protocol[i] = '\0';
+
+    // Skip to next element
+    c++;
+    while (*c == ' ') c++;
 
     // Read response code
     for (i = 0; *c != ' '; i++)
@@ -58,6 +68,21 @@ LogEnrtry parseLogEntry(const char *logLine) {
         logEntry.status[i] = *(c++);
     }
     logEntry.status[i] = '\0';
+
+    // Skip to next element
+    while (*c != '"') c++;
+    c++;
+    while (*c != '"') c++;
+    c++;
+    while (*c != '"') c++;
+    c++;
+
+    // Read browser fingerprint
+    for (i = 0; *c != '"'; i++)
+    {
+        logEntry.browserFingerprint[i] = *(c++);
+    }
+    logEntry.browserFingerprint[i] = '\0';
 
     return logEntry;
 }

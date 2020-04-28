@@ -11,7 +11,9 @@ typedef struct LogEnrtry
     char date[FIELD_SIZE];
     char httpMethod[FIELD_SIZE];
     char url[FIELD_SIZE];
+    char protocol[FIELD_SIZE];
     char status[FIELD_SIZE];
+    char browserFingerprint[FIELD_SIZE];
 } LogEnrtry;
 
 LogEnrtry parseLogEntry(const char *logLine);
